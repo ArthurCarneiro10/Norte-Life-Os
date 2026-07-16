@@ -8,34 +8,27 @@ export default function Login() {
   const [mode, setMode] = useState<"entrar" | "criar">("entrar");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [aceite, setAceite] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function submit() {
     setError(null);
-    if (!email || !password) {
-      setError("Preencha e-mail e senha.");
-      return;
-    }
-    if (password.length < 6) {
-      setError("A senha precisa ter ao menos 6 caracteres.");
-      return;
-    }
+    if (!email || !password) return setError("Preencha e-mail e senha.");
+    if (password.length < 6) return setError("A senha precisa ter ao menos 6 caracteres.");
+    if (mode === "criar" && !aceite)
+      return setError("Para criar a conta, aceite os Termos e a Política de Privacidade.");
+
     setLoading(true);
     const supabase = createClient();
-
     const { error } =
       mode === "criar"
         ? await supabase.auth.signUp({ email, password })
         : await supabase.auth.signInWithPassword({ email, password });
-
     setLoading(false);
 
-    if (error) {
-      setError(traduz(error.message));
-      return;
-    }
-    router.push("/app/tarefas");
+    if (error) return setError(traduz(error.message));
+    router.push("/app");
     router.refresh();
   }
 
@@ -61,34 +54,29 @@ export default function Login() {
         onKeyDown={(e) => e.key === "Enter" && submit()}
       />
 
-      {error && (
-        <p style={{ color: "var(--coral)", fontSize: 13, margin: "2px 0 10px" }}>
-          {error}
-        </p>
+      {mode === "criar" && (
+        <label className="consent">
+          <input type="checkbox" checked={aceite} onChange={(e) => setAceite(e.target.checked)} />
+          <span>
+            Li e aceito os <a href="/termos" target="_blank">Termos de Uso</a> e a{" "}
+            <a href="/privacidade" target="_blank">Política de Privacidade</a>.
+          </span>
+        </label>
       )}
 
+      {error && <p className="auth-error">{error}</p>}
+
       <button className="btn ink" onClick={submit} disabled={loading}>
-        {loading
-          ? "Aguarde..."
-          : mode === "criar"
-          ? "Criar minha conta"
-          : "Entrar no Norte"}
+        {loading ? "Aguarde..." : mode === "criar" ? "Criar minha conta" : "Entrar no Norte"}
       </button>
 
       <p className="note">
         {mode === "entrar" ? "Ainda não tem conta? " : "Já tem conta? "}
         <button
+          className="linkbtn"
           onClick={() => {
             setMode(mode === "entrar" ? "criar" : "entrar");
             setError(null);
-          }}
-          style={{
-            background: "none",
-            border: "none",
-            color: "var(--gold)",
-            fontWeight: 600,
-            cursor: "pointer",
-            fontSize: 12.5,
           }}
         >
           {mode === "entrar" ? "Criar conta" : "Entrar"}
@@ -100,8 +88,7 @@ export default function Login() {
 
 function traduz(msg: string) {
   if (msg.includes("Invalid login")) return "E-mail ou senha incorretos.";
-  if (msg.includes("already registered"))
-    return "Esse e-mail já tem conta. Escolha 'Entrar'.";
+  if (msg.includes("already registered")) return "Esse e-mail já tem conta. Escolha 'Entrar'.";
   if (msg.includes("Email not confirmed"))
     return "E-mail não confirmado. Desligue 'Confirm email' no Supabase (em dev).";
   return msg;
